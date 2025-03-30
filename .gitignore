@@ -1,0 +1,75 @@
+# Node.js Dependencies #
+########################
+# La carpeta que contiene todas las dependencias descargadas.
+# ¡Nunca debería subirse a Git! Se reinstala con 'npm install' o 'npm ci'.
+node_modules/
+
+# Logs #
+########
+# Archivos de log genéricos o específicos de npm/yarn.
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+*.logs
+
+# Runtime Data / Session Data #
+###############################
+# ¡MUY IMPORTANTE! Ignora la carpeta donde whatsapp-web.js (LocalAuth)
+# guarda los datos de la sesión de WhatsApp localmente si no se usa Docker
+# o si se especifica una ruta local. Contiene tokens sensibles.
+# También cubre la carpeta especificada en dataPath si se crea localmente.
+.wwebjs_auth/
+
+# Datos de sesión montados desde Docker (si se crea localmente por error)
+# Asumiendo que usaste 'session_data' como en el ejemplo 'docker run'
+session_data/
+
+# Environment Variables #
+#########################
+# Archivos que comúnmente guardan variables de entorno, incluidas claves de API
+# u otra información sensible. ¡Nunca deben subirse!
+.env
+.env.*
+# Excepción: A menudo se sube un archivo de ejemplo sin datos sensibles.
+!.env.example
+
+# Operating System Files #
+##########################
+# Archivos de metadatos específicos del sistema operativo.
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE / Editor Configuration #
+##############################
+# Archivos de configuración específicos de entornos de desarrollo.
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sublime-project
+*.sublime-workspace
+
+# Build Output (si hubiera) #
+#############################
+# Si tuvieras un paso de compilación (ej. TypeScript), ignorarías la salida.
+# dist/
+# build/
+# coverage/
+
+# Temporary Files / Cache #
+###########################
+# Otros archivos temporales o de caché.
+
+# Scripts Auxiliares (Opcional) #
+#################################
+# Si tienes scripts que solo usas localmente y no forman parte
+# del despliegue principal (como run_bot.py si SOLO usas Docker).
+# run_bot.py
+
