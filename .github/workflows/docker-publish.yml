@@ -1,0 +1,87 @@
+name: Build and Push Docker Image to GHCR
+
+# Define cuándo se ejecutará el workflow
+on:
+  # Ejecutar en cada push a la rama 'main'
+  push:
+    branches: [ "main" ] # Cambia "main" si tu rama principal es diferente (ej. "master")
+
+  # Permite ejecutar este workflow manualmente desde la pestaña Actions en GitHub
+  workflow_dispatch:
+
+# Variables de entorno globales para el workflow
+env:
+  # Define el nombre de la imagen. Usamos el nombre del repositorio para simplicidad.
+  # ghcr.io/OWNER/REPO_NAME
+  IMAGE_NAME: ${{ github.repository }} # Formato: owner/repository-name
+
+jobs:
+  # Define un trabajo llamado 'build-and-push'
+  build-and-push:
+    # Especifica que se ejecutará en el último runner de Ubuntu proporcionado por GitHub
+    runs-on: ubuntu-latest
+
+    # Define los permisos necesarios para el GITHUB_TOKEN que usará este trabajo
+    permissions:
+      contents: read      # Necesario para hacer checkout del código
+      packages: write     # Necesario para publicar la imagen en GitHub Packages (GHCR)
+
+    steps:
+      # Paso 1: Hacer checkout del código del repositorio
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Paso 2: Configurar Docker Buildx
+      # Buildx es una extensión de Docker CLI que soporta características avanzadas
+      # como construir para múltiples arquitecturas (aunque no lo usamos aquí, es buena práctica)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Paso 3: Iniciar sesión en GitHub Container Registry (GHCR)
+      # Usa el token GITHUB_TOKEN que se genera automáticamente para cada ejecución de workflow
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          # El usuario es el actor que inició el workflow (tu usuario o la app GitHub)
+          username: ${{ github.actor }}
+          # La contraseña es el token GITHUB_TOKEN proporcionado por Actions
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Paso 4: Extraer metadatos (etiquetas y labels) para Docker
+      # Genera etiquetas como 'latest', el hash del commit, etc. automáticamente.
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          # Especifica el nombre completo de la imagen en GHCR
+          images: ghcr.io/${{ env.IMAGE_NAME }}
+          # Genera etiquetas:
+          #   - 'latest' para la rama por defecto
+          #   - El hash corto del commit git (ej. 'sha-a1b2c3d')
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
+
+      # Paso 5: Construir y publicar (push) la imagen Docker
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          # Directorio que contiene el Dockerfile (el directorio raíz '.')
+          context: .
+          # Indica que queremos publicar la imagen después de construirla
+          push: true
+          # Las etiquetas generadas por el paso 'meta'
+          tags: ${{ steps.meta.outputs.tags }}
+          # Los labels generados por el paso 'meta' (buena práctica incluirlos)
+          labels: ${{ steps.meta.outputs.labels }}
+          # Habilitar caché para acelerar futuras construcciones
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # (Opcional) Paso 6: Mostrar las etiquetas de la imagen construida
+      - name: Echo Image Tags
+        run: |
+          echo "Docker image built and pushed with tags:"
+          echo "${{ steps.meta.outputs.tags }}"
+
