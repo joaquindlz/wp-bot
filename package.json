@@ -1,0 +1,43 @@
+{
+  "name": "whatsapp-api-bot",
+  "version": "1.0.0",
+  "description": "WhatsApp bot que escucha mensajes en un grupo específico y los reenvía a una API externa.",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Joaquín de la Zerda",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.6.8",             # Para realizar las peticiones HTTP
+    "qrcode-terminal": "^0.12.0",  # Para mostrar el código QR en la terminal
+    "whatsapp-web.js": "^1.23.0"   # La librería principal para interactuar con WhatsApp Web
+                                   # NOTA: Esta versión puede necesitar ajustes. Revisa la
+                                   # documentación oficial de whatsapp-web.js para la última
+                                   # versión compatible o si encuentras problemas.
+  },
+  "devDependencies": {
+    # Aquí podrías añadir herramientas de desarrollo si las necesitas, como:
+    # "nodemon": "^3.0.0" # Para reiniciar automáticamente el bot durante el desarrollo
+  },
+  "engines": {
+    "node": ">=18.0.0" # Especifica la versión mínima de Node.js recomendada (basado en Dockerfile)
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TU_USUARIO/TU_REPOSITORIO.git" # Cambia esto por la URL de tu repo
+  },
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "api",
+    "webhook",
+    "nodejs",
+    "whatsapp-web.js"
+  ],
+  "bugs": {
+    "url": "https://github.com/TU_USUARIO/TU_REPOSITORIO/issues" # Cambia esto por la URL de issues de tu repo
+  },
+  "homepage": "https://github.com/TU_USUARIO/TU_REPOSITORIO#readme" # Cambia esto por la URL de tu repo
+}
