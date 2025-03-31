@@ -26,7 +26,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/TU_USUARIO/TU_REPOSITORIO.git" # Cambia esto por la URL de tu repo
+    "url": "git+https://github.com/joaquindlz/wp-bot"
   },
   "keywords": [
     "whatsapp",
@@ -37,7 +37,7 @@
     "whatsapp-web.js"
   ],
   "bugs": {
-    "url": "https://github.com/TU_USUARIO/TU_REPOSITORIO/issues" # Cambia esto por la URL de issues de tu repo
+    "url": "https://github.com/joaquindlz/wp-bot/issues"
   },
-  "homepage": "https://github.com/TU_USUARIO/TU_REPOSITORIO#readme" # Cambia esto por la URL de tu repo
+  "homepage": "https://github.com/joaquindlz/wp-bot/blob/main/README.md"
 }
