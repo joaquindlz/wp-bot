@@ -1,0 +1,14 @@
+name: "WP-Bot"
+description: "WP-Bot Home Assistant add-on"
+version: "0.1.0"
+slug: "wpbot"
+url: "https://github.com/joaquindlz/wp-bot"
+init: false
+arch:
+  - amd64
+startup: services
+map:
+  - type: ssl
+  - type: data
+    read_only: False
+    path: /usr/src/app/.wwebjs_auth
