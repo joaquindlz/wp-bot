@@ -10,5 +10,14 @@ startup: services
 map:
   - type: ssl
   - type: data
-    read_only: False
+    read_only: false
     path: /usr/src/app/.wwebjs_auth
+options:
+  webhookApi: ""
+  targetGroupName: ""
+  apiToken: ""
+schema:
+  webhookApi: url
+  targetGroupName: str
+  apiToken: password
+

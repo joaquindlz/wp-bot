@@ -12,20 +12,22 @@ const axios = require('axios');
 // Recibe la URL de la API y el nombre del grupo desde los argumentos de la línea de comandos
 const API_ENDPOINT = process.argv[2];
 const TARGET_GROUP_NAME = process.argv[3];
+const API_AUTH_TOKEN = process.argv[4];
 // Directorio para guardar los datos de la sesión DENTRO del contenedor/entorno
 const SESSION_DATA_PATH = '/usr/src/app/.wwebjs_auth'; // Coincide con el punto de montaje del volumen Docker
 // --------------------
 
 // Validar argumentos de entrada
-if (!API_ENDPOINT || !TARGET_GROUP_NAME) {
-    console.error("Error: Debes proporcionar la URL de la API y el nombre del grupo como argumentos.");
-    console.error("Ejemplo: node bot.js https://tu-api.com/endpoint \"Nombre Exacto Del Grupo\"");
+if (!API_ENDPOINT || !TARGET_GROUP_NAME || !API_AUTH_TOKEN) {
+    console.error("Error: Debes proporcionar la URL de la API, el nombre del grupo y el Token de Autenticación como argumentos.");
+    console.error("Ejemplo: node bot.js https://tu-api.com/endpoint \"Nombre Exacto Del Grupo\" TU_BEARER_TOKEN");
     process.exit(1); // Salir si faltan argumentos
 }
 
 console.log(`--- Iniciando WhatsApp Bot ---`);
 console.log(`API Endpoint: ${API_ENDPOINT}`);
 console.log(`Grupo objetivo: "${TARGET_GROUP_NAME}"`);
+console.log(`Token de Autenticación: [CONFIGURADO]`);
 console.log(`Ruta de datos de sesión: ${SESSION_DATA_PATH}`);
 console.log(`-----------------------------`);
 
@@ -151,9 +153,16 @@ client.on('message_create', async (message) => {
 
             console.log('[API SEND] Enviando datos a:', API_ENDPOINT);
             // console.log('[API PAYLOAD]', JSON.stringify(payload, null, 2)); // Descomentar para depurar el payload completo
+	    const axiosConfig = {
+                headers: {
+                    'Authorization': `Bearer ${API_AUTH_TOKEN}`, // Añadir el encabezado Bearer Token
+                    'Content-Type': 'application/json' // Especificar que enviamos JSON (buena práctica)
+                },
+                timeout: 10000 // Mantener el timeout de 10 segundos
+            };
 
             // Realizar la petición HTTP POST a la API configurada
-            axios.post(API_ENDPOINT, payload, { timeout: 10000 }) // Timeout de 10 segundos
+            axios.post(API_ENDPOINT, payload, axiosConfig) // Timeout de 10 segundos
                 .then(response => {
                     console.log(`[API SUCCESS] Respuesta de API: Status ${response.status}`);
                     // console.log('[API RESPONSE DATA]', response.data); // Descomentar si necesitas ver la respuesta de la API
@@ -161,11 +170,13 @@ client.on('message_create', async (message) => {
                 .catch(error => {
                     console.error('[API ERROR] Error al enviar datos a la API:');
                     if (error.response) {
-                        // El servidor respondió con un status fuera del rango 2xx
                         console.error(`  Status: ${error.response.status}`);
-                        console.error(`  Headers: ${JSON.stringify(error.response.headers)}`);
-                        console.error(`  Data: ${JSON.stringify(error.response.data)}`);
-                    } else if (error.request) {
+                        // No loguear error.response.data por defecto, podría contener info sensible
+                        // console.error(`  Data: ${JSON.stringify(error.response.data)}`);
+                        if (error.response.status === 401 || error.response.status === 403) {
+                           console.error('  ¡Error de autenticación/autorización! Verifica el API_AUTH_TOKEN.');
+                        }                    
+		    } else if (error.request) {
                         // La petición se hizo pero no se recibió respuesta (ej. timeout, sin conexión)
                         console.error('  No se recibió respuesta del servidor.');
                         console.error(`  Request details: ${error.message}`);

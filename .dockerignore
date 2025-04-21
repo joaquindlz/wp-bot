@@ -1,5 +1,6 @@
 .git
 .gitignore
+.github
 node_modules
 npm-debug.log
 *.env
@@ -7,3 +8,6 @@ npm-debug.log
 Dockerfile
 .dockerignore
 run_bot.py # No lo necesitaremos dentro del contenedor
+delete-me.json
+build.yaml
+config.yaml
