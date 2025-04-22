@@ -14,10 +14,7 @@ map:
     path: /usr/src/app/.wwebjs_auth
 options:
   webhookApi: ""
-  targetGroupName: ""
   apiToken: ""
 schema:
   webhookApi: url
-  targetGroupName: str
   apiToken: password
-

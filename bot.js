@@ -1,6 +1,6 @@
 /**
- * WhatsApp Bot que escucha mensajes en un grupo específico
- * y envía los detalles a una API externa vía HTTP POST.
+ * WhatsApp Bot que escucha mensajes en CUALQUIER chat (grupo o privado)
+ * y envía los detalles a una API externa vía HTTP POST con autenticación Bearer Token.
  * Diseñado para ejecutarse en un servidor headless / Docker.
  */
 
@@ -9,26 +9,25 @@ const qrcode = require('qrcode-terminal');
 const axios = require('axios');
 
 // --- Configuración ---
-// Recibe la URL de la API y el nombre del grupo desde los argumentos de la línea de comandos
+// Recibe la URL de la API y el Token desde los argumentos de la línea de comandos
 const API_ENDPOINT = process.argv[2];
-const TARGET_GROUP_NAME = process.argv[3];
-const API_AUTH_TOKEN = process.argv[4];
+const API_AUTH_TOKEN = process.argv[3]; // El token es ahora el segundo argumento útil
 // Directorio para guardar los datos de la sesión DENTRO del contenedor/entorno
 const SESSION_DATA_PATH = '/usr/src/app/.wwebjs_auth'; // Coincide con el punto de montaje del volumen Docker
 // --------------------
 
 // Validar argumentos de entrada
-if (!API_ENDPOINT || !TARGET_GROUP_NAME || !API_AUTH_TOKEN) {
-    console.error("Error: Debes proporcionar la URL de la API, el nombre del grupo y el Token de Autenticación como argumentos.");
-    console.error("Ejemplo: node bot.js https://tu-api.com/endpoint \"Nombre Exacto Del Grupo\" TU_BEARER_TOKEN");
+if (!API_ENDPOINT || !API_AUTH_TOKEN) { // Solo validar los 2 argumentos necesarios
+    console.error("Error: Debes proporcionar la URL de la API y el Token de Autenticación como argumentos.");
+    console.error("Ejemplo: node bot.js https://tu-api.com/endpoint TU_BEARER_TOKEN");
     process.exit(1); // Salir si faltan argumentos
 }
 
 console.log(`--- Iniciando WhatsApp Bot ---`);
 console.log(`API Endpoint: ${API_ENDPOINT}`);
-console.log(`Grupo objetivo: "${TARGET_GROUP_NAME}"`);
-console.log(`Token de Autenticación: [CONFIGURADO]`);
+console.log(`Token de Autenticación: [CONFIGURADO]`); // No mostrar el token real en los logs
 console.log(`Ruta de datos de sesión: ${SESSION_DATA_PATH}`);
+console.log(`Modo: Escuchando TODOS los chats entrantes.`);
 console.log(`-----------------------------`);
 
 // Usar LocalAuth para guardar la sesión y no escanear QR cada vez
@@ -39,9 +38,6 @@ const client = new Client({
     }),
     puppeteer: {
         headless: true, // ¡Esencial para servidores sin GUI!
-        // executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, // Opcional: Usar path de env si está definido (p.ej., en Dockerfile)
-                                                                          // Si no está definido, puppeteer intentará encontrar uno.
-                                                                          // El Dockerfile instala chromium, así que debería encontrarlo.
         args: [
             '--no-sandbox', // Requerido en muchos entornos Linux/Docker
             '--disable-setuid-sandbox', // Requerido en muchos entornos Linux/Docker
@@ -50,12 +46,9 @@ const client = new Client({
             '--no-first-run', // Evita pantallas de bienvenida de Chromium
             '--no-zygote', // Mejora la compatibilidad en algunos sistemas
             '--disable-gpu' // Otra forma de asegurar que la GPU no se use
-            // '--single-process', // ¡Usar con precaución! Solo si hay problemas severos de memoria, puede causar inestabilidad.
         ],
     }
 });
-
-let targetGroupId = null; // Variable para almacenar el ID del grupo encontrado
 
 // Evento: Se genera el código QR para la autenticación
 client.on('qr', (qr) => {
@@ -68,149 +61,117 @@ client.on('qr', (qr) => {
 
 // Evento: Autenticación exitosa
 client.on('authenticated', () => {
-    console.log('[AUTH] Autenticado exitosamente.');
+    console.log('[AUTH] Autenticado exitosamente en WhatsApp.');
 });
 
 // Evento: Fallo en la autenticación
 client.on('auth_failure', msg => {
-    console.error('[AUTH ERROR] Fallo en la autenticación:', msg);
+    console.error('[AUTH ERROR] Fallo en la autenticación de WhatsApp:', msg);
     console.error('Asegúrate de que no haya otra sesión activa con el mismo dataPath.');
     console.error('Si el problema persiste, elimina el directorio de sesión y reintenta el escaneo QR.');
-    process.exit(1); // Salir en caso de fallo crítico de autenticación
+    process.exit(1);
 });
 
 // Evento: El cliente está listo para usarse
 client.on('ready', async () => {
     console.log('[READY] Cliente de WhatsApp listo!');
-    console.log(`Buscando el grupo: "${TARGET_GROUP_NAME}"...`);
-
-    try {
-        const chats = await client.getChats();
-        const group = chats.find(chat => chat.isGroup && chat.name === TARGET_GROUP_NAME);
-
-        if (group) {
-            targetGroupId = group.id._serialized; // Guardar el ID serializado del grupo
-            console.log(`[GROUP FOUND] Grupo "${TARGET_GROUP_NAME}" encontrado. ID: ${targetGroupId}`);
-            console.log(`Escuchando nuevos mensajes en este grupo...`);
-        } else {
-            console.error(`[ERROR] Grupo "${TARGET_GROUP_NAME}" NO encontrado.`);
-            console.error('Verifica lo siguiente:');
-            console.error('  1. El nombre del grupo es EXACTAMENTE el mismo (sensible a mayúsculas/minúsculas y emojis).');
-            console.error('  2. El bot (número vinculado) es miembro del grupo.');
-            console.error('  3. La sesión de WhatsApp está completamente cargada (puede tardar unos segundos después de "ready").');
-            // Podrías decidir salir o seguir intentando encontrarlo en intervalos, pero salir es más simple.
-            // await client.destroy(); // Limpiar antes de salir
-            // process.exit(1);
-            console.warn('El bot continuará ejecutándose, pero no procesará mensajes hasta que se encuentre el grupo (si aparece más tarde, no lo detectará sin reiniciar o lógica adicional).');
-        }
-    } catch (error) {
-        console.error("[ERROR] Error buscando los chats o el grupo:", error);
-    }
+    console.log(`Escuchando todos los mensajes entrantes...`);
 });
 
 // Evento: Se crea/recibe un mensaje
 // Usamos 'message_create' ya que captura los mensajes enviados por otros y por el propio bot (que filtraremos)
 client.on('message_create', async (message) => {
-    // Validar si tenemos el ID del grupo y si el mensaje pertenece a ese grupo
-    if (targetGroupId && message.id.remote === targetGroupId) {
 
-        // Ignorar mensajes enviados por el propio bot para evitar bucles o spam a la API
-        if (message.fromMe) {
-            // console.log(`[MSG IGNORED] Mensaje propio en "${TARGET_GROUP_NAME}"`);
-            return;
-        }
+    // Ignorar mensajes enviados por el propio bot para evitar bucles o spam a la API
+    if (message.fromMe) {
+        // console.log(`[MSG IGNORED] Mensaje propio.`);
+        return;
+    }
 
-        console.log(`\n[NEW MSG] Nuevo mensaje recibido en "${TARGET_GROUP_NAME}"`);
+    try {
+        // Obtener información del chat donde se recibió el mensaje
+        const chat = await message.getChat();
+        const chatId = chat.id._serialized; // ID del chat (grupo o privado)
+        const chatName = chat.name; // Nombre del grupo o del contacto (si es chat privado)
+        const isGroup = chat.isGroup; // Booleano para saber si es un grupo
 
-        try {
-            // Obtener información del contacto que envió el mensaje
-            const contact = await message.getContact();
-            // Intentar obtener el nombre más descriptivo posible
-            const senderName = contact.pushname || contact.name || message.author || message.from;
+        console.log(`\n[NEW MSG] Nuevo mensaje recibido en ${isGroup ? 'grupo' : 'chat privado'} "${chatName}" (ID: ${chatId})`);
 
-            // Preparar el payload para enviar a la API
-            const payload = {
-                messageId: message.id.id,
-                timestamp: message.timestamp, // Unix timestamp (segundos)
-                receivedAt: Math.floor(Date.now() / 1000), // Timestamp de procesamiento (segundos)
-                groupId: targetGroupId,
-                groupName: TARGET_GROUP_NAME, // Ya lo tenemos, no es necesario obtenerlo del chat cada vez
-                sender: {
-                   id: message.author || message.from, // ID del remitente (ej: 1234567890@c.us)
-                   name: senderName, // Nombre obtenido del contacto
-                   isMe: message.fromMe // Booleano (siempre será false aquí por el filtro previo)
-                },
-                message: {
-                   body: message.body, // Contenido del texto del mensaje
-                   type: message.type, // Tipo de mensaje (chat, image, video, sticker, etc.)
-                   hasMedia: message.hasMedia, // Booleano si tiene adjuntos
-                   // Opcional: Añadir más detalles si son necesarios
-                   // mediaKey: message.mediaKey,
-                   // mentionedIds: message.mentionedIds,
-                   // location: message.location, // Si es un mensaje de ubicación
-                }
-            };
+        // Obtener información del contacto que envió el mensaje
+        const contact = await message.getContact();
+        // Intentar obtener el nombre más descriptivo posible del remitente
+        const senderName = contact.pushname || contact.name || message.author || message.from; // El ID (author/from) puede ser diferente al ID del chat si es un grupo
 
-            console.log('[API SEND] Enviando datos a:', API_ENDPOINT);
-            // console.log('[API PAYLOAD]', JSON.stringify(payload, null, 2)); // Descomentar para depurar el payload completo
-	    const axiosConfig = {
-                headers: {
-                    'Authorization': `Bearer ${API_AUTH_TOKEN}`, // Añadir el encabezado Bearer Token
-                    'Content-Type': 'application/json' // Especificar que enviamos JSON (buena práctica)
-                },
-                timeout: 10000 // Mantener el timeout de 10 segundos
-            };
+        // Preparar el payload para enviar a la API
+        const payload = {
+            messageId: message.id.id,
+            timestamp: message.timestamp, // Unix timestamp (segundos) del mensaje
+            receivedAt: Math.floor(Date.now() / 1000), // Timestamp de procesamiento (segundos)
+            chat: { // Información del chat donde se recibió
+                id: chatId,
+                name: chatName,
+                isGroup: isGroup
+            },
+            sender: { // Información del remitente
+               id: message.author || message.from, // ID del remitente (ej: 1234567890@c.us o groupId_participantId@g.us)
+               name: senderName, // Nombre obtenido del contacto
+               isMe: message.fromMe // Booleano (siempre será false aquí por el filtro previo)
+            },
+            message: { // Contenido del mensaje
+               body: message.body, // Contenido del texto del mensaje
+               type: message.type, // Tipo de mensaje (chat, image, video, sticker, etc.)
+               hasMedia: message.hasMedia, // Booleano si tiene adjuntos
+            }
+        };
 
-            // Realizar la petición HTTP POST a la API configurada
-            axios.post(API_ENDPOINT, payload, axiosConfig) // Timeout de 10 segundos
-                .then(response => {
-                    console.log(`[API SUCCESS] Respuesta de API: Status ${response.status}`);
-                    // console.log('[API RESPONSE DATA]', response.data); // Descomentar si necesitas ver la respuesta de la API
-                })
-                .catch(error => {
-                    console.error('[API ERROR] Error al enviar datos a la API:');
-                    if (error.response) {
-                        console.error(`  Status: ${error.response.status}`);
-                        // No loguear error.response.data por defecto, podría contener info sensible
-                        // console.error(`  Data: ${JSON.stringify(error.response.data)}`);
-                        if (error.response.status === 401 || error.response.status === 403) {
-                           console.error('  ¡Error de autenticación/autorización! Verifica el API_AUTH_TOKEN.');
-                        }                    
-		    } else if (error.request) {
-                        // La petición se hizo pero no se recibió respuesta (ej. timeout, sin conexión)
-                        console.error('  No se recibió respuesta del servidor.');
-                        console.error(`  Request details: ${error.message}`);
-                    } else {
-                        // Algo ocurrió al configurar la petición que disparó un Error
-                        console.error('  Error en configuración de Axios:', error.message);
+        console.log('[API SEND] Enviando datos a:', API_ENDPOINT);
+        // console.log('[API PAYLOAD]', JSON.stringify(payload, null, 2)); // Descomentar para depurar el payload completo
+
+        // --- Configuración de Axios con el encabezado de Autorización ---
+        const axiosConfig = {
+            headers: {
+                'Authorization': `Bearer ${API_AUTH_TOKEN}`, // Añadir el encabezado Bearer Token
+                'Content-Type': 'application/json' // Especificar que enviamos JSON
+            },
+            timeout: 10000 // Timeout de 10 segundos
+        };
+        // ---------------------------------------------------------------
+
+        // Realizar la petición HTTP POST a la API configurada con los headers
+        axios.post(API_ENDPOINT, payload, axiosConfig)
+            .then(response => {
+                console.log(`[API SUCCESS] Respuesta de API: Status ${response.status}`);
+            })
+            .catch(error => {
+                console.error('[API ERROR] Error al enviar datos a la API:');
+                if (error.response) {
+                    console.error(`  Status: ${error.response.status}`);
+                    if (error.response.status === 401 || error.response.status === 403) {
+                       console.error('  ¡Error de autenticación/autorización! Verifica el API_AUTH_TOKEN.');
                     }
-                });
+                } else if (error.request) {
+                    console.error('  No se recibió respuesta del servidor (Timeout o problema de red).');
+                } else {
+                    console.error('  Error en configuración de Axios:', error.message);
+                }
+            });
 
-        } catch (error) {
-            console.error("[ERROR] Error procesando el mensaje o contactando la API:", error);
+    } catch (error) {
+        console.error("[ERROR] Error procesando el mensaje:", error);
+        // Añadir más detalles si es posible, por ejemplo, el ID del mensaje que falló
+        if(message && message.id) {
+            console.error(`  Mensaje ID: ${message.id.id}`);
         }
     }
-    // Opcional: Loggear otros mensajes para depuración
-    // else {
-    //    const chat = await message.getChat();
-    //    if (chat.isGroup) {
-    //        console.log(`[DEBUG MSG] Mensaje de ${message.from} en otro grupo (${chat.name}): ${message.body}`);
-    //    } else {
-    //         console.log(`[DEBUG MSG] Mensaje privado de ${message.from}: ${message.body}`);
-    //    }
-    // }
 });
 
 // Evento: El cliente se desconecta
 client.on('disconnected', (reason) => {
     console.warn('[DISCONNECTED] Cliente de WhatsApp desconectado:', reason);
-    console.warn('El bot intentará reconectar automáticamente si es posible, pero si la sesión es inválida, puede requerir re-escanear el QR.');
-    // Considerar salir si la desconexión es irrecuperable (ej. 'NAVIGATION')
     if (reason === 'NAVIGATION') {
          console.error('Desconexión crítica (NAVIGATION). Saliendo.');
          process.exit(1);
     }
-    // whatsapp-web.js puede intentar reconectar, no siempre es necesario salir aquí.
 });
 
 // Evento: Cambio en el estado de la conexión
@@ -228,7 +189,6 @@ client.initialize()
     });
 
 // --- Manejo de cierre limpio ---
-// Capturar señales de terminación (Ctrl+C, docker stop, etc.)
 const handleShutdown = async (signal) => {
     console.log(`\n[SHUTDOWN] Recibida señal ${signal}. Cerrando cliente de WhatsApp...`);
     try {
@@ -237,10 +197,9 @@ const handleShutdown = async (signal) => {
     } catch (err) {
         console.error('[SHUTDOWN] Error al destruir el cliente:', err);
     } finally {
-        process.exit(0); // Salir del proceso
+        process.exit(0);
     }
 };
 
-process.on('SIGINT', () => handleShutdown('SIGINT')); // Captura Ctrl+C
-process.on('SIGTERM', () => handleShutdown('SIGTERM')); // Captura señales de terminación (ej. `docker stop`)
-//
+process.on('SIGINT', () => handleShutdown('SIGINT'));
+process.on('SIGTERM', () => handleShutdown('SIGTERM'));
