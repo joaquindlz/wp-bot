@@ -3,6 +3,7 @@ FROM $BUILD_FROM
 
 RUN apt-get update && apt-get install -y \
     gnupg2 \
+    bc \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -157,10 +158,12 @@ RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
     && mkdir -p /home/pptruser/Downloads \
     && chown -R pptruser:pptruser /home/pptruser \
     # Dar permisos al usuario sobre el directorio de la app
-    && chown -R pptruser:pptruser /usr/src/app
+    && chown -R pptruser:pptruser /usr/src/app \
+    # Dar permisos al script de healthcheck
+    && chmod +x /usr/src/app/healthcheck.sh
 
 # Cambiar al usuario no-root
-#USER pptruser
+USER pptruser
 
 # Establecer la ruta ejecutable de Chromium para Puppeteer vía variable de entorno
 # whatsapp-web.js puede que la detecte automáticamente, pero ser explícito es bueno.
@@ -170,6 +173,11 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Expone un puerto si tu app lo necesitara (no es el caso del bot, pero es buena práctica documentarlo)
 # EXPOSE 8080
+
+# Healthcheck avanzado usando script personalizado
+# Verifica múltiples aspectos del bot: proceso, sesión, Chromium y memoria
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD /usr/src/app/healthcheck.sh
 
 # Comando por defecto para ejecutar la aplicación
 # Se espera que la API_ENDPOINT y TARGET_GROUP_NAME se pasen como argumentos al ejecutar 'docker run'
