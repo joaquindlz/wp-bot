@@ -163,7 +163,7 @@ RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
     && chmod +x /usr/src/app/healthcheck.sh
 
 # Cambiar al usuario no-root
-USER pptruser
+#USER pptruser
 
 # Establecer la ruta ejecutable de Chromium para Puppeteer vía variable de entorno
 # whatsapp-web.js puede que la detecte automáticamente, pero ser explícito es bueno.
@@ -174,9 +174,10 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 # Expone un puerto si tu app lo necesitara (no es el caso del bot, pero es buena práctica documentarlo)
 # EXPOSE 8080
 
-# Healthcheck avanzado usando script personalizado
-# Verifica múltiples aspectos del bot: proceso, sesión, Chromium y memoria
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+# Healthcheck completo con detección de sesión caducada
+# Verifica: proceso + sesión WhatsApp + Chromium + memoria
+# CRÍTICO: Falla si la sesión de WhatsApp caduca o se desconecta
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD /usr/src/app/healthcheck.sh
 
 # Comando por defecto para ejecutar la aplicación
@@ -187,5 +188,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 # Puedes poner valores por defecto o placeholders aquí si quieres
 #CMD [$WEBHOOK_API, $TARGET_GROUP_NAME]
 
-#ENTRYPOINT ["/usr/bin/bash","/usr/src/app/run.sh"]
-ENTRYPOINT ["/usr/bin/bashio","/usr/src/app/run.sh"]
+# FIXED: Changed from bashio to bash (bashio is not installed)
+ENTRYPOINT ["/bin/bash", "/usr/src/app/run.sh"]
