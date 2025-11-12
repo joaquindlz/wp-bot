@@ -1,6 +1,4 @@
-#!/usr/bin/env bashio
-
-CONFIG_PATH=/usr/src/app/.wwebjs_auth/options.json
+#!/usr/bin/env bash
 
 WEBHOOK_API=$(bashio::config 'webhookApi')
 API_TOKEN=$(bashio::config 'apiToken')

@@ -160,7 +160,7 @@ RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
     && chown -R pptruser:pptruser /usr/src/app
 
 # Cambiar al usuario no-root
-#USER pptruser
+USER pptruser
 
 # Establecer la ruta ejecutable de Chromium para Puppeteer vía variable de entorno
 # whatsapp-web.js puede que la detecte automáticamente, pero ser explícito es bueno.
@@ -179,5 +179,5 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 # Puedes poner valores por defecto o placeholders aquí si quieres
 #CMD [$WEBHOOK_API, $TARGET_GROUP_NAME]
 
-#ENTRYPOINT ["/usr/bin/bash","/usr/src/app/run.sh"]
-ENTRYPOINT ["/usr/bin/bashio","/usr/src/app/run.sh"]
+# FIXED: Changed from bashio to bash (bashio is not installed)
+ENTRYPOINT ["/bin/bash", "/usr/src/app/run.sh"]
