@@ -2,7 +2,7 @@
  * WhatsApp Bot que escucha mensajes en CUALQUIER chat (grupo o privado)
  * y envía los detalles a una API externa vía HTTP POST con autenticación Bearer Token.
  * Diseñado para ejecutarse en un servidor headless / Docker.
-**/
+ */
 
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
@@ -77,6 +77,8 @@ const client = new Client({
 
 // Intervalo para actualizar el timestamp del archivo de estado (mantener healthcheck feliz)
 let stateUpdateInterval = null;
+// Flag para evitar que el evento 'ready' se ejecute múltiples veces
+let isReady = false;
 
 // Evento: Se genera el código QR para la autenticación
 client.on('qr', (qr) => {
@@ -113,11 +115,23 @@ client.on('auth_failure', msg => {
 
 // Evento: El cliente está listo para usarse
 client.on('ready', async () => {
+    // Prevenir ejecución múltiple del evento 'ready'
+    if (isReady) {
+        console.log('[READY] Evento ready disparado nuevamente (ignorado)');
+        return;
+    }
+    
+    isReady = true;
     console.log('[READY] Cliente de WhatsApp listo!');
     console.log(`Escuchando todos los mensajes entrantes...`);
     
     // Actualizar estado a READY
     updateSessionState('READY');
+    
+    // Limpiar intervalo previo si existe (por si acaso)
+    if (stateUpdateInterval) {
+        clearInterval(stateUpdateInterval);
+    }
     
     // Iniciar intervalo de actualización de estado cada 60 segundos
     // Esto mantiene el archivo actualizado para que el healthcheck sepa que está vivo
@@ -221,6 +235,9 @@ client.on('message_create', async (message) => {
 // Evento: El cliente se desconecta
 client.on('disconnected', (reason) => {
     console.warn('[DISCONNECTED] Cliente de WhatsApp desconectado:', reason);
+    
+    // Resetear flag de ready para permitir reconexión
+    isReady = false;
     
     // Actualizar estado según la razón
     if (reason === 'NAVIGATION') {
