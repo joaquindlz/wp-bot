@@ -2,6 +2,7 @@
  * WhatsApp Bot que escucha mensajes en CUALQUIER chat (grupo o privado)
  * y envía los detalles a una API externa vía HTTP POST con autenticación Bearer Token.
  * Diseñado para ejecutarse en un servidor headless / Docker.
+**/
 
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
