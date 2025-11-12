@@ -77,8 +77,6 @@ const client = new Client({
 
 // Intervalo para actualizar el timestamp del archivo de estado (mantener healthcheck feliz)
 let stateUpdateInterval = null;
-// Flag para evitar que el evento 'ready' se ejecute múltiples veces
-let isReady = false;
 
 // Evento: Se genera el código QR para la autenticación
 client.on('qr', (qr) => {
@@ -113,15 +111,8 @@ client.on('auth_failure', msg => {
     }, 5000);
 });
 
-// Evento: El cliente está listo para usarse
-client.on('ready', async () => {
-    // Prevenir ejecución múltiple del evento 'ready'
-    if (isReady) {
-        console.log('[READY] Evento ready disparado nuevamente (ignorado)');
-        return;
-    }
-    
-    isReady = true;
+// Evento: El cliente está listo para usarse (solo se ejecuta UNA vez)
+client.once('ready', async () => {
     console.log('[READY] Cliente de WhatsApp listo!');
     console.log(`Escuchando todos los mensajes entrantes...`);
     
@@ -236,9 +227,6 @@ client.on('message_create', async (message) => {
 client.on('disconnected', (reason) => {
     console.warn('[DISCONNECTED] Cliente de WhatsApp desconectado:', reason);
     
-    // Resetear flag de ready para permitir reconexión
-    isReady = false;
-    
     // Actualizar estado según la razón
     if (reason === 'NAVIGATION') {
         console.error('Desconexión crítica (NAVIGATION). Saliendo.');
@@ -252,6 +240,7 @@ client.on('disconnected', (reason) => {
         
         process.exit(1);
     } else if (reason === 'LOGOUT') {
+        console.error('Sesión cerrada remotamente (LOGOUT). Saliendo.');
         updateSessionState('LOGGED_OUT');
         
         // Limpiar intervalo de actualización
@@ -262,6 +251,7 @@ client.on('disconnected', (reason) => {
         
         process.exit(1);
     } else {
+        console.warn(`Desconexión con razón: ${reason}. Actualizando estado.`);
         updateSessionState('DISCONNECTED');
         
         // Para otras desconexiones, intentar reconectar
