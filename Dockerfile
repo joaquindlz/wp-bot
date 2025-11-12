@@ -188,5 +188,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
 # Puedes poner valores por defecto o placeholders aquí si quieres
 #CMD [$WEBHOOK_API, $TARGET_GROUP_NAME]
 
-# FIXED: Changed from bashio to bash (bashio is not installed)
-ENTRYPOINT ["/bin/bash", "/usr/src/app/run.sh"]
+ENTRYPOINT ["/usr/bin/bashio","/usr/src/app/run.sh"]
