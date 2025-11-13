@@ -3,6 +3,7 @@ FROM $BUILD_FROM
 
 RUN apt-get update && apt-get install -y \
     gnupg2 \
+    bc \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -157,7 +158,9 @@ RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
     && mkdir -p /home/pptruser/Downloads \
     && chown -R pptruser:pptruser /home/pptruser \
     # Dar permisos al usuario sobre el directorio de la app
-    && chown -R pptruser:pptruser /usr/src/app
+    && chown -R pptruser:pptruser /usr/src/app \
+    # Dar permisos al script de healthcheck
+    && chmod +x /usr/src/app/healthcheck.sh
 
 # Cambiar al usuario no-root
 #USER pptruser
@@ -171,6 +174,12 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 # Expone un puerto si tu app lo necesitara (no es el caso del bot, pero es buena práctica documentarlo)
 # EXPOSE 8080
 
+# Healthcheck completo con detección de sesión caducada
+# Verifica: proceso + sesión WhatsApp + Chromium + memoria
+# CRÍTICO: Falla si la sesión de WhatsApp caduca o se desconecta
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD /usr/src/app/healthcheck.sh
+
 # Comando por defecto para ejecutar la aplicación
 # Se espera que la API_ENDPOINT y TARGET_GROUP_NAME se pasen como argumentos al ejecutar 'docker run'
 # Ejemplo: docker run <imagename> https://miapi.com "Mi Grupo WhatsApp"
@@ -179,5 +188,4 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 # Puedes poner valores por defecto o placeholders aquí si quieres
 #CMD [$WEBHOOK_API, $TARGET_GROUP_NAME]
 
-#ENTRYPOINT ["/usr/bin/bash","/usr/src/app/run.sh"]
 ENTRYPOINT ["/usr/bin/bashio","/usr/src/app/run.sh"]
